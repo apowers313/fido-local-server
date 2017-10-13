@@ -65,7 +65,7 @@ describe("fido comm test", function() {
         }, Error);
     });
 
-    it.only("finds all credentials", function() {
+    it("finds all credentials", function() {
         var s = new FidoLocalStorage();
         s.init()
             .then(() => {
@@ -79,7 +79,21 @@ describe("fido comm test", function() {
     });
 
     it("finds multiple credentials");
-    it("deletes a database");
+
+    it.only("deletes a database", function() {
+        var s = new FidoLocalStorage();
+        return s.deleteAll()
+            .then(() => {
+                return s.init();
+            })
+            .then(() => {
+                return s.getCredentials();
+            })
+            .then((credList) => {
+                assert.isArray(credList);
+                assert.strictEqual(credList.length, 0);
+            });
+    });
 });
 
 describe("fido server test", function() {
@@ -90,9 +104,32 @@ describe("fido server test", function() {
 });
 
 describe("webauthn wrapper", function() {
-    it("does registration");
-    it("does authentication");
+    it("exists", function() {
+        var authn = new WebAuthnTransaction();
+        assert.isObject (authn);
+    });
+
+    it("does registration", function() {
+        var authn = new WebAuthnTransaction();
+        return authn.register();
+    });
+
+    it("returns default registration options");
+
+    it("does authentication", function() {
+        var authn = new WebAuthnTransaction();
+        return authn.register()
+            .then(() => {
+                return authn.authenticate();
+            });
+    });
+
+    it("returns default authn options");
 });
 
 /* JSHINT */
-/* globals chai, FidoLocalStorage, FidoServerComm, WebAuthnWrapper, IDBDatabase, testCredId */
+/* globals chai, FidoLocalStorage, FidoServerComm, WebAuthnTransaction, IDBDatabase, testCredId */
+
+
+
+
