@@ -1,4 +1,4 @@
-var testCredId = new Uint8Array(16);
+var testCredId = new Uint8Array(162);
 window.crypto.getRandomValues(testCredId);
 testCredId = testCredId.buffer;
 
