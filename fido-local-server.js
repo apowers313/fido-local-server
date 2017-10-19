@@ -72,6 +72,10 @@ class FidoLocalStorage {
         });
     }
 
+    done() {
+        if (this.db) return this.db.close();
+    }
+
     saveCredential(idBuffer) {
         if (!this.db) {
             throw new Error("not initialized");
@@ -83,7 +87,6 @@ class FidoLocalStorage {
 
         return new Promise((resolve, reject) => {
             var db = this.db;
-            console.log ("db", db);
             var tx = db.transaction(this.dbTableName, "readwrite");
             var store = tx.objectStore(this.dbTableName);
 
@@ -116,7 +119,7 @@ class FidoLocalStorage {
             var store = tx.objectStore(this.dbTableName);
 
             var request = store.getAll();
-            request.onsuccess = function() {
+            request.onsuccess = () => {
                 var matching = request.result;
                 if (matching !== undefined) {
 
@@ -137,9 +140,14 @@ class FidoLocalStorage {
 
             var deleteRequest = window.indexedDB.deleteDatabase(this.dbName);
 
+            deleteRequest.onblocked = (e) => {
+                console.log ("BLOCKED");
+                return reject(new Error("Error deleting database: blocked " + e));
+            };
+
             deleteRequest.onerror = (e) => {
                 console.log("Error deleting database");
-                return reject(new Error("Error deleting database" + e));
+                return reject(new Error("Error deleting database: error " + e));
             };
 
             deleteRequest.onsuccess = () => {
@@ -196,7 +204,7 @@ class FidoServerComm {
         this.regChallenge = null;
 
         // store credential
-        return this.storage.saveCredential (rawId);
+        return this.storage.saveCredential(rawId);
     }
 
     /**
@@ -220,7 +228,7 @@ class FidoServerComm {
     }
 
     sendAuthnResponse(resp) {
-        console.log ("authn response", resp);
+        console.log("authn response", resp);
 
         // XXX TODO: validate response
 
@@ -231,7 +239,24 @@ class FidoServerComm {
 
 class WebAuthnTransaction {
     constructor() {
+        if (typeof navigator.credentials !== "object" ||
+            typeof navigator.credentials.create !== "function") {
+            alert("WebAuthn not supported by browser");
+            return null;
+        }
 
+        if (!this.isChrome() && !this.isFirefox()) {
+            alert("WebAuthn library does not support this browser version");
+            return null;
+        }
+    }
+
+    isChrome() {
+        return !!window.chrome;
+    }
+
+    isFirefox() {
+        return typeof InstallTrigger !== 'undefined';
     }
 
     register() {
@@ -260,33 +285,62 @@ class WebAuthnTransaction {
     }
 
     getDefaultRegisterOptions(challenge) {
-        var ret = {
-            publicKey: {
-                challenge: challenge.challenge,
-                // Relying Party:
-                rp: {
-                    name: "Acme",
-                    id: challenge.rpId
-                },
+        var ret;
+        if (this.isFirefox()) {
+            ret = {
+                publicKey: {
+                    challenge: challenge.challenge,
+                    // Relying Party:
+                    rp: {
+                        name: "Acme",
+                        id: challenge.rpId
+                    },
 
-                // User:
-                user: {
-                    id: "1098237235409872",
-                    name: "john.p.smith@example.com",
-                    displayName: "John P. Smith",
-                    icon: "https://pics.acme.com/00/p/aBjjjpqPb.png"
-                },
+                    // User:
+                    user: {
+                        id: "1098237235409872",
+                        name: "john.p.smith@example.com",
+                        displayName: "John P. Smith",
+                        icon: "https://pics.acme.com/00/p/aBjjjpqPb.png"
+                    },
 
-                parameters: [{
-                    type: "public-key",
-                    algorithm: "ES256",
-                    // algorithm: -7,
-                }],
+                    parameters: [{
+                        type: "public-key",
+                        algorithm: "ES256",
+                    }],
 
-                timeout: 60000, // 1 minute
-                excludeList: [] // No excludeList
-            }
-        };
+                    timeout: 60000, // 1 minute
+                    excludeList: [] // No excludeList
+                }
+            };
+        } else if (this.isChrome()) {
+            ret = {
+                publicKey: {
+                    challenge: challenge.challenge,
+                    // Relying Party:
+                    rp: {
+                        name: "Acme",
+                        id: challenge.rpId
+                    },
+
+                    // User:
+                    user: {
+                        id: "1098237235409872",
+                        name: "john.p.smith@example.com",
+                        displayName: "John P. Smith",
+                        icon: "https://pics.acme.com/00/p/aBjjjpqPb.png"
+                    },
+
+                    parameters: [{
+                        type: "public-key",
+                        algorithm: -7,
+                    }],
+
+                    timeout: 60000, // 1 minute
+                    excludeList: [] // No excludeList
+                }
+            };
+        }
 
         return ret;
     }
@@ -328,7 +382,7 @@ class WebAuthnTransaction {
         //     transports: ["usb", "nfc", "ble"],
         // };
         var credList = challenge.credList.map(function(val, idx) {
-            console.log (`${idx}:`, val);
+            console.log(`${idx}:`, val);
             return {
                 type: "public-key",
                 // id: Uint8Array.from(rawId),
@@ -336,17 +390,30 @@ class WebAuthnTransaction {
                 transports: ["usb", "nfc", "ble"],
             };
         });
-        console.log ("credList", credList);
+        console.log("credList", credList);
 
-        var ret = {
-            publicKey: {
-                // rpId: challenge.rpId,
-                rpId: challenge.rpId,
-                challenge: challenge.challenge,
-                timeout: 60000,
-                allowList: credList
-            }
-        };
+        var ret = {};
+        if (this.isFirefox()) {
+            ret = {
+                publicKey: {
+                    // rpId: challenge.rpId,
+                    rpId: challenge.rpId,
+                    challenge: challenge.challenge,
+                    timeout: 60000,
+                    allowList: credList
+                }
+            };
+        } else if (this.isChrome()) {
+            ret = {
+                publicKey: {
+                    // rpId: challenge.rpId,
+                    rpId: challenge.rpId,
+                    challenge: challenge.challenge,
+                    timeout: 60000,
+                    allowList: credList
+                }
+            };
+        }
 
         return ret;
     }
