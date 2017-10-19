@@ -13,7 +13,7 @@ describe("fido comm test", function() {
             assert.instanceOf(res, IDBDatabase);
             assert.instanceOf(s.db, IDBDatabase);
             assert.strictEqual(res, s.db);
-            return res;
+            return s.done();
         });
     });
 
@@ -28,6 +28,7 @@ describe("fido comm test", function() {
             })
             .then(function(res2) {
                 assert.strictEqual(res1, res2);
+                return s.done();
             });
     });
 
@@ -38,16 +39,16 @@ describe("fido comm test", function() {
         }, Error);
     });
 
-    it.skip("throws when trying to save non-id", function() {
-        var s = new FidoLocalStorage();
-        var p = s.init();
-        assert.throws(function() {
-            p.then(() => {
-                s.saveCredential("blah");
-            });
-        }, TypeError);
-        return p;
-    });
+    // it.skip("throws when trying to save non-id", function() {
+    //     var s = new FidoLocalStorage();
+    //     var p = s.init();
+    //     assert.throws(function() {
+    //         p.then(() => {
+    //             s.saveCredential("blah");
+    //         });
+    //     }, TypeError);
+    //     return p;
+    // });
 
     // XXX the tests that follow are order dependent
     it("saves a credential", function() {
@@ -55,6 +56,9 @@ describe("fido comm test", function() {
         return s.init()
             .then(() => {
                 return s.saveCredential(testCredId);
+            })
+            .then(() => {
+                return s.done();
             });
     });
 
@@ -67,7 +71,7 @@ describe("fido comm test", function() {
 
     it("finds all credentials", function() {
         var s = new FidoLocalStorage();
-        s.init()
+        return s.init()
             .then(() => {
                 console.log ("getting credentials");
                 return s.getCredentials();
@@ -75,12 +79,15 @@ describe("fido comm test", function() {
             .then((credList) => {
                 console.log ("got creds:", credList);
                 assert.isArray (credList);
+                return s.done();
             });
     });
 
     it("finds multiple credentials");
 
-    it.only("deletes a database", function() {
+    it("deletes a database", function() {
+        this.timeout(10000);
+        console.log ("doing delete database");
         var s = new FidoLocalStorage();
         return s.deleteAll()
             .then(() => {
@@ -92,6 +99,7 @@ describe("fido comm test", function() {
             .then((credList) => {
                 assert.isArray(credList);
                 assert.strictEqual(credList.length, 0);
+                return s.done();
             });
     });
 });
@@ -103,13 +111,14 @@ describe("fido server test", function() {
     it("validates an authn response");
 });
 
-describe("webauthn wrapper", function() {
+describe.only("webauthn wrapper", function() {
     it("exists", function() {
         var authn = new WebAuthnTransaction();
         assert.isObject (authn);
     });
 
     it("does registration", function() {
+        this.timeout(15000);
         var authn = new WebAuthnTransaction();
         return authn.register();
     });
@@ -117,6 +126,7 @@ describe("webauthn wrapper", function() {
     it("returns default registration options");
 
     it("does authentication", function() {
+        this.timeout(30000);
         var authn = new WebAuthnTransaction();
         return authn.register()
             .then(() => {
