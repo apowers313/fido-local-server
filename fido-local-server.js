@@ -172,6 +172,10 @@ class FidoServerComm {
         return this.storage.init();
     }
 
+    done() {
+        return this.storage.done();
+    }
+
     /**
      * Get random bytes that represent a challenge
      * @return {Promise<Object>} Promise that resolves to an object containing the `challenge` as an ArrayBuffer and the `rpId` as a String.
@@ -281,6 +285,9 @@ class WebAuthnTransaction {
 
                 // send credentials back to server
                 return server.sendRegisterResponse(newCred);
+            })
+            .then(() => {
+                return server.done();
             });
     }
 
@@ -367,6 +374,9 @@ class WebAuthnTransaction {
 
                 // send credentials back to server
                 return server.sendAuthnResponse(assertion);
+            })
+            .then(() => {
+                return server.done();
             });
     }
 
